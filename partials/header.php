@@ -15,7 +15,8 @@ if (session_status() !== PHP_SESSION_ACTIVE) session_start();
             <li><a href="dashboard.php">Home</a></li>
             <?php if (in_array(current_user()['role'], ['admin','consultant'], true)): ?>
               <li><a href="admin.php">Admin Panel</a></li>
-              <li><a href="templates.php">Finding Templates</a></li>
+              <li><a href="templates.php">Templates</a></li>
+              <li><a href="projects.php">Projects</a></li>
             <?php endif; ?>
             <li><a href="profile.php">Profile</a></li>
             <li><a href="logout.php">Log out</a></li>
