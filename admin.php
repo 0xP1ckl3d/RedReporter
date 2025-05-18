@@ -5,74 +5,42 @@ require 'csrf.php';
 require 'auth.php';
 
 // Only admins and consultants may access
-require_role(['admin','consultant']);
+require_role(['admin', 'consultant']);
 
-// Handle form submissions
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $action = $_POST['action'] ?? '';
+$user = current_user();
 
-    switch ($action) {
+/* --------------------------------------------------------------------------
+ | Handle User‑management POST actions (Admins only)
+   ------------------------------------------------------------------------*/
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $user['role'] === 'admin') {
+    if (!verifyToken($_POST['csrf_token'])) {
+        $_SESSION['error'] = 'Invalid CSRF token.';
+        header('Location: admin.php');
+        exit;
+    }
+
+    switch ($_POST['action'] ?? '') {
         case 'create_user':
-            if (current_user()['role'] === 'admin' && verifyToken($_POST['csrf_token'])) {
-                $newUser = trim($_POST['new_username'] ?? '');
-                $newPass = $_POST['new_password'] ?? '';
-                $newRole = $_POST['new_role'] ?? 'client';
-                if ($newUser && $newPass && in_array($newRole, ['admin','consultant','client'], true)) {
-                    $hash = password_hash($newPass, PASSWORD_DEFAULT);
-                    $stmt = $pdo->prepare("INSERT INTO users (username,password_hash,role) VALUES (?, ?, ?)");
-                    $stmt->execute([$newUser, $hash, $newRole]);
-                    $_SESSION['message'] = "User '{$newUser}' created.";
-                } else {
-                    $_SESSION['error'] = 'All user fields are required.';
-                }
+            $u = trim($_POST['new_username'] ?? '');
+            $p = $_POST['new_password'] ?? '';
+            $r = $_POST['new_role'] ?? 'client';
+            if ($u && $p && in_array($r, ['admin', 'consultant', 'client'], true)) {
+                $hash = password_hash($p, PASSWORD_DEFAULT);
+                $stmt = $pdo->prepare('INSERT INTO users (username,password_hash,role) VALUES (?,?,?)');
+                $stmt->execute([$u, $hash, $r]);
+                $_SESSION['message'] = "User '$u' created.";
+            } else {
+                $_SESSION['error'] = 'All user fields are required.';
             }
             break;
 
         case 'delete_user':
-            if (current_user()['role'] === 'admin' && verifyToken($_POST['csrf_token'])) {
-                $uid = intval($_POST['user_id']);
-                if ($uid !== current_user()['id']) {
-                    $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
-                    $stmt->execute([$uid]);
-                    $_SESSION['message'] = "User ID {$uid} deleted.";
-                } else {
-                    $_SESSION['error'] = 'Cannot delete yourself.';
-                }
-            }
-            break;
-
-        case 'create_project':
-            if (verifyToken($_POST['csrf_token'])) {
-                $projName = trim($_POST['project_name'] ?? '');
-                if ($projName) {
-                    $owner = (current_user()['role'] === 'admin')
-                        ? intval($_POST['owner_id'] ?? current_user()['id'])
-                        : current_user()['id'];
-                    $stmt = $pdo->prepare("INSERT INTO projects (name, owner_id) VALUES (?, ?)");
-                    $stmt->execute([$projName, $owner]);
-                    $_SESSION['message'] = "Project '{$projName}' created.";
-                } else {
-                    $_SESSION['error'] = 'Project name is required.';
-                }
-            }
-            break;
-
-        case 'delete_project':
-            if (verifyToken($_POST['csrf_token'])) {
-                $pid = intval($_POST['project_id']);
-                $user = current_user();
-                if ($user['role'] === 'consultant') {
-                    $chk = $pdo->prepare("SELECT owner_id FROM projects WHERE id = ?");
-                    $chk->execute([$pid]);
-                    $row = $chk->fetch(PDO::FETCH_ASSOC);
-                    if (!$row || $row['owner_id'] !== $user['id']) {
-                        $_SESSION['error'] = 'Forbidden.';
-                        break;
-                    }
-                }
-                $del = $pdo->prepare("DELETE FROM projects WHERE id = ?");
-                $del->execute([$pid]);
-                $_SESSION['message'] = "Project ID {$pid} deleted.";
+            $uid = (int)($_POST['user_id'] ?? 0);
+            if ($uid && $uid !== $user['id']) {
+                $pdo->prepare('DELETE FROM users WHERE id = ?')->execute([$uid]);
+                $_SESSION['message'] = "User ID $uid deleted.";
+            } else {
+                $_SESSION['error'] = 'Cannot delete this user.';
             }
             break;
     }
@@ -81,13 +49,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// Fetch data for display
-$users = $pdo->query("SELECT id, username, role FROM users ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+/* --------------------------------------------------------------------------
+ | Fetch data for display
+   ------------------------------------------------------------------------*/
+$users = $pdo->query('SELECT id, username, role FROM users ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
+
 $projects = $pdo->query(
-    "SELECT p.id, p.name, p.owner_id, u.username AS owner_name
-     FROM projects p
-     JOIN users u ON p.owner_id = u.id
-     ORDER BY p.id"
+    "SELECT p.id, p.name, c.name AS client_name, u.username AS creator
+       FROM projects p
+       LEFT JOIN clients c ON p.client_id = c.id
+       LEFT JOIN users   u ON p.created_by = u.id
+       ORDER BY p.id DESC"
 )->fetchAll(PDO::FETCH_ASSOC);
 
 $csrf_token = generateToken();
@@ -99,142 +71,94 @@ unset($_SESSION['message'], $_SESSION['error']);
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Admin Panel – RedReporter2</title>
   <link rel="stylesheet" href="assets/css/style.css">
   <script defer src="assets/js/app.js"></script>
 </head>
 <body>
-  <?php
-    $title = 'Admin Panel';
-    include 'partials/header.php';
-  ?>
+<?php $title='Admin Panel'; include 'partials/header.php'; ?>
+<main class="container">
+  <?php if ($message): ?><p style="color:green;"><?= htmlspecialchars($message) ?></p><?php endif; ?>
+  <?php if ($error):   ?><p style="color:red;"  ><?= htmlspecialchars($error) ?></p><?php endif; ?>
 
-  <main class="container">
-    <?php if ($message): ?>
-      <p style="color:green;"><?= htmlspecialchars($message) ?></p>
-    <?php elseif ($error): ?>
-      <p style="color:red;"> <?= htmlspecialchars($error) ?> </p>
-    <?php endif; ?>
+  <?php if ($user['role'] === 'admin'): ?>
+  <!----------------------------- User Management -------------------------->
+  <section>
+    <h2>User Management</h2>
+    <form method="post" class="form-grid">
+      <input type="hidden" name="csrf_token" value="<?= $csrf_token ?>">
+      <input type="hidden" name="action" value="create_user">
 
-    <?php if (current_user()['role'] === 'admin'): ?>
-      <section>
-        <h2>User Management</h2>
-        <form method="post" class="form-grid">
-    <input type="hidden" name="csrf_token" value="<?= $csrf_token ?>">
-    <input type="hidden" name="action" value="create_user">
-
-    <div class="form-group">
-        <label for="new_username">Username</label>
-        <input type="text" id="new_username" name="new_username" required>
-    </div>
-
-    <div class="form-group">
-        <label for="new_password">Password</label>
-        <div class="input-with-toggle">
-            <input type="password" id="new_password" name="new_password" required>
-            <button type="button" class="toggle-password" data-toggle="new_password">Show</button>
-        </div>
-    </div>
-
-    <div class="form-group">
-        <label for="new_role">Role</label>
-        <select id="new_role" name="new_role">
-            <option value="client">Client</option>
-            <option value="consultant">Consultant</option>
-            <option value="admin">Admin</option>
+      <div class="form-group">
+        <label>Username</label>
+        <input name="new_username" required>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" name="new_password" required>
+      </div>
+      <div class="form-group">
+        <label>Role</label>
+        <select name="new_role">
+          <option value="client">Client</option>
+          <option value="consultant">Consultant</option>
+          <option value="admin">Admin</option>
         </select>
-    </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn">Create User</button>
+      </div>
+    </form>
 
-    <div class="form-group form-actions">
-        <button type="submit" class="btn">Create User</button>
-    </div>
-</form>
+    <table>
+      <thead><tr><th>ID</th><th>Username</th><th>Role</th><th></th></tr></thead>
+      <tbody>
+        <?php foreach ($users as $u): ?>
+          <tr>
+            <td><?= $u['id'] ?></td>
+            <td><?= htmlspecialchars($u['username']) ?></td>
+            <td><?= $u['role'] ?></td>
+            <td>
+              <?php if ($u['id'] !== $user['id']): ?>
+                <form method="post" style="display:inline;">
+                  <input type="hidden" name="csrf_token" value="<?= $csrf_token ?>">
+                  <input type="hidden" name="action" value="delete_user">
+                  <input type="hidden" name="user_id" value="<?= $u['id'] ?>">
+                  <button class="btn btn-danger" onclick="return confirm('Delete user?')">Delete</button>
+                </form>
+              <?php endif; ?>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  </section>
+  <?php endif; ?>
 
-        <table>
-          <thead>
-            <tr><th>ID</th><th>Username</th><th>Role</th><th>Action</th></tr>
-          </thead>
-          <tbody>
-            <?php foreach ($users as $u): ?>
-              <tr>
-                <td><?= $u['id'] ?></td>
-                <td><?= htmlspecialchars($u['username']) ?></td>
-                <td><?= $u['role'] ?></td>
-                <td>
-                  <?php if ($u['id'] !== current_user()['id']): ?>
-                    <form method="post" style="display:inline;">
-                      <input type="hidden" name="csrf_token" value="<?= $csrf_token ?>">
-                      <input type="hidden" name="action" value="delete_user">
-                      <input type="hidden" name="user_id" value="<?= $u['id'] ?>">
-                      <button type="submit">Delete</button>
-                    </form>
-                  <?php endif; ?>
-                </td>
-              </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
-      </section>
-    <?php endif; ?>
+  <!--------------------------- Project Management ------------------------->
+  <section style="margin-top:2rem;">
+    <h2>Project Management</h2>
+    <p>
+      <a href="project_builder.php" class="btn">Create / Edit Projects</a>
+      <a href="projects.php" class="btn">Open Project List</a>
+      <a href="clients.php"  class="btn">Manage Clients</a>
+    </p>
 
-    <section>
-      <h2>Project Management</h2>
-      <form method="post" class="form-grid">
-    <input type="hidden" name="csrf_token" value="<?= $csrf_token ?>">
-    <input type="hidden" name="action" value="create_project">
-
-    <div class="form-group">
-        <label for="project_name">Project Name</label>
-        <input type="text" id="project_name" name="project_name" required>
-    </div>
-
-    <?php if (current_user()['role'] === 'admin'): ?>
-    <div class="form-group">
-        <label for="owner_id">Owner</n        </label>
-        <select id="owner_id" name="owner_id">
-            <?php foreach ($users as $u): ?>
-                <?php if ($u['role'] !== 'client'): ?>
-                <option value="<?= $u['id'] ?>"><?= htmlspecialchars($u['username']) ?> (<?= $u['role'] ?>)</option>
-                <?php endif; ?>
-            <?php endforeach; ?>
-        </select>
-    </div>
-    <?php endif; ?>
-
-    <div class="form-group form-actions">
-        <button type="submit" class="btn">Create Project</button>
-    </div>
-</form>
-
-      <table>
-        <thead>
-          <tr><th>ID</th><th>Name</th><th>Owner</th><th>Action</th></tr>
-        </thead>
-        <tbody>
-          <?php foreach ($projects as $p): ?>
-            <?php $me = current_user();
-                  $canDelete = $me['role'] === 'admin' 
-                               || ($me['role'] === 'consultant' && $p['owner_id'] === $me['id']); ?>
-            <tr>
-              <td><?= $p['id'] ?></td>
-              <td><?= htmlspecialchars($p['name']) ?></td>
-              <td><?= htmlspecialchars($p['owner_name']) ?></td>
-              <td>
-                <?php if ($canDelete): ?>
-                  <form method="post" style="display:inline;">
-                    <input type="hidden" name="csrf_token" value="<?= $csrf_token ?>">
-                    <input type="hidden" name="action" value="delete_project">
-                    <input type="hidden" name="project_id" value="<?= $p['id'] ?>">
-                    <button type="submit">Delete</button>
-                  </form>
-                <?php endif; ?>
-              </td>
-            </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
-    </section>
-  </main>
+    <table>
+      <thead><tr><th>ID</th><th>Name</th><th>Client</th><th>Created By</th></tr></thead>
+      <tbody>
+        <?php foreach ($projects as $p): ?>
+          <tr>
+            <td><?= $p['id'] ?></td>
+            <td><?= htmlspecialchars($p['name']) ?></td>
+            <td><?= htmlspecialchars($p['client_name'] ?? 'N/A') ?></td>
+            <td><?= htmlspecialchars($p['creator'] ?? '-') ?></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  </section>
+</main>
 </body>
 </html>

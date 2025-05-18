@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# –– Configuration (should match config.php) ––
-DB_HOST="localhost"
+# –– Configuration (must match config.php) ––
 DB_NAME="redreporter2"
 DB_USER="redreporter"
 DB_PASS="R3dT34m5R3p0rt"
 
-# –– 1. Create database and user ––
+# –– 1. Create DB & user ––
 mysql -u root <<SQL
 CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';
@@ -15,11 +14,11 @@ GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'localhost';
 FLUSH PRIVILEGES;
 SQL
 
-# –– 2. Core tables (users, clients, projects, etc.) ––
+# –– 2. Core schema ––
 mysql -u root <<'SQL'
 USE `redreporter2`;
 
--- users (login accounts)
+-- users --------------------------------------------------------
 CREATE TABLE IF NOT EXISTS users (
   id            INT AUTO_INCREMENT PRIMARY KEY,
   username      VARCHAR(50)  NOT NULL UNIQUE,
@@ -28,7 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
   created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- client organisations
+-- clients (organisations) --------------------------------------
 CREATE TABLE IF NOT EXISTS clients (
   id   INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
@@ -37,7 +36,7 @@ CREATE TABLE IF NOT EXISTS clients (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- individual client contacts (not login accounts)
+-- client contacts (no login) -----------------------------------
 CREATE TABLE IF NOT EXISTS client_contacts (
   id         INT AUTO_INCREMENT PRIMARY KEY,
   client_id  INT NOT NULL,
@@ -49,7 +48,7 @@ CREATE TABLE IF NOT EXISTS client_contacts (
   FOREIGN KEY (client_id) REFERENCES clients(id)
 ) ENGINE=InnoDB;
 
--- projects / engagements
+-- projects ------------------------------------------------------
 CREATE TABLE IF NOT EXISTS projects (
   id                INT AUTO_INCREMENT PRIMARY KEY,
   client_id         INT NOT NULL,
@@ -64,18 +63,22 @@ CREATE TABLE IF NOT EXISTS projects (
   FOREIGN KEY (client_id) REFERENCES clients(id),
   FOREIGN KEY (created_by) REFERENCES users(id)
 ) ENGINE=InnoDB;
+SQL
 
--- which users can see a project
+mysql -u root <<'SQL'
+USE `redreporter2`;
+
+-- project members ----------------------------------------------
 CREATE TABLE IF NOT EXISTS project_members (
-  project_id       INT NOT NULL,
-  user_id          INT NOT NULL,
-  role_in_project  ENUM('lead','tester','observer') DEFAULT 'tester',
+  project_id      INT NOT NULL,
+  user_id         INT NOT NULL,
+  role_in_project ENUM('lead','tester','observer') DEFAULT 'tester',
   PRIMARY KEY (project_id, user_id),
   FOREIGN KEY (project_id) REFERENCES projects(id),
   FOREIGN KEY (user_id)    REFERENCES users(id)
 ) ENGINE=InnoDB;
 
--- reusable finding templates
+-- templates -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS templates (
   id           INT AUTO_INCREMENT PRIMARY KEY,
   title        VARCHAR(255) NOT NULL,
@@ -91,7 +94,7 @@ CREATE TABLE IF NOT EXISTS templates (
   FOREIGN KEY (updated_by) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
--- template instances attached to projects
+-- project findings ---------------------------------------------
 CREATE TABLE IF NOT EXISTS project_findings (
   id                INT AUTO_INCREMENT PRIMARY KEY,
   project_id        INT NOT NULL,
@@ -102,7 +105,7 @@ CREATE TABLE IF NOT EXISTS project_findings (
   FOREIGN KEY (template_id) REFERENCES templates(id)
 ) ENGINE=InnoDB;
 
--- evidence files for a project finding
+-- evidence ------------------------------------------------------
 CREATE TABLE IF NOT EXISTS evidence (
   id                 INT AUTO_INCREMENT PRIMARY KEY,
   project_finding_id INT NOT NULL,
@@ -117,7 +120,6 @@ SQL
 
 # –– 3. Default admin user ––
 ADMIN_HASH=$(php -r "echo password_hash('admin', PASSWORD_DEFAULT);")
-
 mysql -u root <<SQL
 USE \`${DB_NAME}\`;
 INSERT IGNORE INTO users (username, password_hash, role)
