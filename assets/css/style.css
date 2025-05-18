@@ -1,0 +1,427 @@
+:root {
+  --bg-light:   #ffffff;
+  --text-light: #000000;
+  --bg-dark:    #1e1e1e;
+  --text-dark:  #f0f0f0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+  background-color: var(--bg-light);
+  color: var(--text-light);
+  transition: background-color 0.3s, color 0.3s;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+body.dark {
+  background-color: var(--bg-dark);
+  color: var(--text-dark);
+}
+
+body.dark .sidebar {
+  background-color: var(--bg-dark);
+  color: var(--text-dark);
+}
+
+/*───────────────────────────────────
+  Header (Grid)
+───────────────────────────────────*/
+header {
+  border-bottom: 1px solid currentColor;
+  background-color: inherit;
+}
+
+.header-container {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0.5rem 1rem;
+}
+
+.header-container h1 {
+  margin: 0;
+  text-align: center;
+  font-size: 1.5rem;
+  grid-column: 2;
+}
+
+.header-left {
+  display: flex;
+  justify-content: flex-start;
+  grid-column: 1;
+  position: relative; /* so sidebar is positioned under burger */
+}
+
+.header-right {
+  display: flex;
+  justify-content: flex-end;
+  grid-column: 3;
+}
+
+/* Theme toggle */
+#theme-toggle {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: currentColor;
+}
+
+/*───────────────────────────────────
+  Hamburger Icon
+───────────────────────────────────*/
+.burger {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 24px;
+  height: 18px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: currentColor;
+}
+
+.burger span {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background-color: currentColor;
+  border-radius: 1px;
+  transition: background-color 0.3s;
+}
+
+/*───────────────────────────────────
+  Sidebar Menu
+───────────────────────────────────*/
+.sidebar {
+  display: none;
+  position: absolute;
+  top: calc(100% + 14px);       /* directly below header-left */
+  left: 0;
+  width: 180px;
+  background-color: var(--bg-light);
+  box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+  z-index: 10;
+  border: 1px solid currentColor;
+}
+
+.sidebar.open {
+  display: block;
+}
+
+.sidebar ul {
+  list-style: none;
+  padding: 0.5rem;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar ul li {
+  margin-bottom: 0.5rem;
+}
+
+.sidebar ul li:last-child {
+  margin-bottom: 0;
+}
+
+.sidebar ul li a {
+  text-decoration: none;
+  color: inherit;
+  padding: 0.25rem 0.5rem;
+  display: block;
+  border-radius: 4px;
+}
+
+.sidebar ul li a:hover {
+  background-color: rgba(0,0,0,0.05);
+}
+
+/*───────────────────────────────────
+  Content Containers
+───────────────────────────────────*/
+.container {
+  width: 95%;
+  max-width: 1000px;
+  margin: 2rem auto;
+  padding: 1.5rem;
+  border-radius: 8px;
+  background-color: inherit;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/*───────────────────────────────────────────────
+  Modern form grid
+───────────────────────────────────────────────*/
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem 1.5rem;
+  align-items: end;
+  margin-bottom: 2rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+}
+
+.form-group input,
+.form-group select {
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+/*───────────────────────────────────────────────
+  Form actions (buttons)
+───────────────────────────────────────────────*/
+.form-actions {
+  /* span full width of the grid */
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.btn {
+  background-color: #007bff;
+  color: #fff;
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn:hover {
+  background-color: #0056b3;
+}
+
+.login-form {
+  grid-template-columns: 1fr !important;
+}
+
+/*───────────────────────────────────────────────
+  Password visibility toggle
+───────────────────────────────────────────────*/
+/* Ensure the toggle container wraps the full width */
+.input-with-toggle {
+  position: relative;
+  width: 100%;           /* <-- make it fill the parent */
+}
+
+/* Give the input enough right padding for the button */
+.input-with-toggle input {
+  width: 100%;
+  padding-right: 3rem;   /* <-- enough space for the toggle */
+}
+
+/* Position the toggle fully inside the input */
+.toggle-password {
+  position: absolute;
+  top: 50%;
+  right: 0.75rem;        /* <-- tuck it inside a bit */
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #007bff;
+  font-size: 0.9rem;
+  font-weight: bold;
+  line-height: 1;
+  padding: 0;
+}
+
+/*───────────────────────────────────────────────
+  Template List Grid
+───────────────────────────────────────────────*/
+.list-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+/*───────────────────────────────────────────────
+  Template Card
+───────────────────────────────────────────────*/
+.template-card {
+  background-color: inherit;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* Card Header */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+.card-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+/* Risk Badge */
+.badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+.risk-critical       { background-color: #c0392b; color: #fff; }
+.risk-high           { background-color: #e74c3c; color: #fff; }
+.risk-medium         { background-color: #f39c12; color: #fff; }
+.risk-low            { background-color: #27ae60; color: #fff; }
+.risk-informational  { background-color: #7f8c8d; color: #fff; }
+
+/* Meta Information */
+.card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-light);
+  margin-top: auto;
+}
+
+/* Action Buttons */
+.card-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.card-actions button {
+  flex: 1;
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 4px;
+  background-color: #007bff;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+}
+.card-actions button:hover {
+  background-color: #0056b3;
+}
+
+/* Danger button for Cancel */
+.btn-danger {
+  background-color: #dc3545;
+  color: #fff;
+}
+.btn-danger:hover {
+  background-color: #c82333;
+}
+
+/* Risk-select color borders */
+select.risk-critical {
+  border: 2px solid #c0392b;
+}
+select.risk-high {
+  border: 2px solid #e74c3c;
+}
+select.risk-medium {
+  border: 2px solid #f39c12;
+}
+select.risk-low {
+  border: 2px solid #27ae60;
+}
+select.risk-informational {
+  border: 2px solid #7f8c8d;
+}
+
+/* make an opened card span the full grid */
+.template-card.expanded {
+  grid-column: 1 / -1;
+}
+
+/* split your two rows of buttons */
+.card-actions {
+  display: flex;
+  flex-direction: column;
+  margin-top: 1rem; /* preserve your existing spacing */
+}
+.card-actions .actions-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.card-actions .actions-row:last-child {
+  margin-bottom: 0; 
+}
+
+/*───────────────────────────────────────────────
+  Colour‐coding Disable & Delete
+───────────────────────────────────────────────*/
+.card-actions button[data-action="toggle"] {
+  background-color: orange !important;
+  border-color: darkorange !important;
+  color: #fff;
+}
+
+.card-actions button[data-action="delete"] {
+  background-color: red !important;
+  border-color: darkred !important;
+  color: #fff;
+}
+
+.template-card.disabled {
+  opacity: 0.5;
+}
+
+/* Disable all buttons except the toggle */
+.template-card.disabled button:not([data-action="toggle"]) {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* Force green styling for 'Enable' button on disabled cards */
+.template-card.disabled button[data-action="toggle"] {
+  background-color: green !important;
+  border-color: darkgreen !important;
+  color: #fff !important;
+}
+
+/* Ensure delete stays active and styled correctly */
+.template-card.disabled button[data-action="delete"] {
+  pointer-events: auto;
+  opacity: 1;
+}
